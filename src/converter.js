@@ -66,7 +66,7 @@ async function imageToPdf(srcPath, outPath) {
   }
 }
 
-async function toPdf(srcPath, originalName) {
+async function toPdf(srcPath, originalName, { fitToPage = false } = {}) {
   const ext = path.extname(originalName).toLowerCase();
   const outPath = srcPath + '.pdf';
 
@@ -97,7 +97,7 @@ async function toPdf(srcPath, originalName) {
     const srcWithExt = srcPath + ext;
     fs.renameSync(srcPath, srcWithExt);
 
-    if (EXCEL_EXTS.includes(ext)) {
+    if (fitToPage && EXCEL_EXTS.includes(ext)) {
       await setFitToPage(srcWithExt);
     }
 

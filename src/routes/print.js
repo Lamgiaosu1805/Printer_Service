@@ -35,13 +35,20 @@ router.get('/status', async (req, res) => {
   });
 });
 
+const VALID_PAPER_SIZES = ['A4', 'A3', 'A5', 'Letter'];
+const VALID_ORIENTATIONS = ['portrait', 'landscape'];
+
 // POST /api/print
 // form-data fields:
-//   file    (required) — file cần in
-//   copies  (optional) — số bản in, mặc định 1
-//   duplex  (optional) — in 2 mặt: "true" hoặc "false", mặc định false
-//   user    (optional) — tên người in
-//   jobName (optional) — tên job
+//   file        (required) — file cần in
+//   copies      (optional) — số bản in, mặc định 1
+//   duplex      (optional) — in 2 mặt: "true"/"false", mặc định false
+//   paperSize   (optional) — A4 | A3 | A5 | Letter, mặc định A4
+//   orientation (optional) — portrait | landscape, mặc định portrait
+//   pageRange   (optional) — "1-3", "1,3,5", "all", mặc định all
+//   fitToPage   (optional) — thu nhỏ vừa 1 trang cho Excel: "true"/"false", mặc định false
+//   user        (optional) — tên người in
+//   jobName     (optional) — tên job
 router.post('/print', upload.single('file'), async (req, res) => {
   const uploadedPath = req.file?.path;
   let pdfPath = null;
@@ -52,15 +59,19 @@ router.post('/print', upload.single('file'), async (req, res) => {
     }
 
     const { originalname, size } = req.file;
-    const copies = Math.max(1, parseInt(req.body.copies) || 1);
-    const duplex = req.body.duplex === 'true';
-    const user = req.body.user || 'anonymous';
-    const jobName = req.body.jobName || originalname;
+    const copies      = Math.max(1, parseInt(req.body.copies) || 1);
+    const duplex      = req.body.duplex === 'true';
+    const paperSize   = VALID_PAPER_SIZES.find(s => s.toLowerCase() === (req.body.paperSize || '').toLowerCase()) || 'A4';
+    const orientation = VALID_ORIENTATIONS.includes(req.body.orientation) ? req.body.orientation : 'portrait';
+    const pageRange   = req.body.pageRange || 'all';
+    const fitToPage   = req.body.fitToPage === 'true';
+    const user        = req.body.user || 'anonymous';
+    const jobName     = req.body.jobName || originalname;
 
-    console.log(`[Print] ${user} → ${originalname} (${(size / 1024).toFixed(1)}KB) x${copies} duplex=${duplex}`);
+    console.log(`[Print] ${user} → ${originalname} (${(size / 1024).toFixed(1)}KB) x${copies} duplex=${duplex} paper=${paperSize} orient=${orientation} range=${pageRange} fit=${fitToPage}`);
 
-    pdfPath = await toPdf(uploadedPath, originalname);
-    await printer.print(pdfPath, { copies, duplex, jobName });
+    pdfPath = await toPdf(uploadedPath, originalname, { fitToPage });
+    await printer.print(pdfPath, { copies, duplex, paperSize, orientation, pageRange, jobName });
 
     console.log(`[Print] ✓ ${originalname}`);
     res.json({
@@ -69,6 +80,10 @@ router.post('/print', upload.single('file'), async (req, res) => {
       file: originalname,
       copies,
       duplex,
+      paperSize,
+      orientation,
+      pageRange,
+      fitToPage,
       user,
     });
 
