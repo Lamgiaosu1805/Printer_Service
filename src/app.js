@@ -16,7 +16,7 @@ app.use(express.json());
 
 // ── Health check (không cần auth) ─────────────────────────
 app.get('/health', (req, res) => {
-  res.json({ ok: true, service: 'print-service', time: new Date().toISOString() });
+  res.json({ ok: true, service: 'print-service', printer: 'DocuCentre-IV 3065', time: new Date().toISOString() });
 });
 
 // ── Print API (cần auth) ───────────────────────────────────
