@@ -12,7 +12,7 @@ print-service/
 └── src/
     ├── app.js            ← Express app chính
     ├── printer.js        ← Kết nối máy in qua RAW port 9100
-    ├── converter.js      ← Convert Word/Excel/ảnh → PDF
+    ├── js      ← Convert Word/Excel/ảnh → PDF
     ├── middleware/
     │   └── auth.js       ← Xác thực x-api-secret header
     └── routes/
@@ -33,6 +33,7 @@ npm run dev
 ## Deploy lên server
 
 ### 1. Yêu cầu server
+
 - Node.js >= 18
 - LibreOffice (để in Word/Excel)
 - Cùng mạng LAN với máy in
@@ -71,14 +72,17 @@ pm2 save && pm2 startup
 ## API
 
 Tất cả endpoints (trừ /health) đều cần header:
+
 ```
 x-api-secret: your-secret-key
 ```
 
 ### GET /health
+
 Kiểm tra service còn sống.
 
 ### GET /api/status
+
 Kiểm tra máy in online.
 
 ```json
@@ -89,18 +93,20 @@ Kiểm tra máy in online.
 ```
 
 ### POST /api/print
+
 Gửi lệnh in.
 
 **Request:** `multipart/form-data`
 
-| Field | Type | Mô tả |
-|-------|------|-------|
-| `file` | File | File cần in (PDF, Word, Excel, ảnh) |
-| `copies` | number | Số bản in (mặc định: 1) |
-| `user` | string | Tên người in (để log) |
-| `jobName` | string | Tên job in |
+| Field     | Type   | Mô tả                               |
+| --------- | ------ | ----------------------------------- |
+| `file`    | File   | File cần in (PDF, Word, Excel, ảnh) |
+| `copies`  | number | Số bản in (mặc định: 1)             |
+| `user`    | string | Tên người in (để log)               |
+| `jobName` | string | Tên job in                          |
 
 **Response:**
+
 ```json
 {
   "ok": true,
@@ -116,20 +122,20 @@ Gửi lệnh in.
 ## Tích hợp từ HRM/CRM (ví dụ Node.js)
 
 ```js
-const FormData = require('form-data');
-const axios    = require('axios');
-const fs       = require('fs');
+const FormData = require("form-data");
+const axios = require("axios");
+const fs = require("fs");
 
 async function printFile(filePath, fileName, user, copies = 1) {
   const form = new FormData();
-  form.append('file', fs.createReadStream(filePath), fileName);
-  form.append('user', user);
-  form.append('copies', copies);
+  form.append("file", fs.createReadStream(filePath), fileName);
+  form.append("user", user);
+  form.append("copies", copies);
 
-  const res = await axios.post('http://PRINT-SERVER-IP:3000/api/print', form, {
+  const res = await axios.post("http://PRINT-SERVER-IP:3000/api/print", form, {
     headers: {
       ...form.getHeaders(),
-      'x-api-secret': 'your-secret-key',
+      "x-api-secret": "your-secret-key",
     },
   });
   return res.data;

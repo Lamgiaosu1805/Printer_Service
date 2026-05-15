@@ -1,12 +1,13 @@
 const { execSync } = require('child_process');
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const TEMP_DIR = process.env.TEMP_DIR || '/tmp/print-service';
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
 const OFFICE_EXTS = ['.doc', '.docx', '.odt', '.rtf', '.xls', '.xlsx', '.ods', '.csv', '.ppt', '.pptx', '.odp'];
-const IMAGE_EXTS  = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'];
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'];
 
 function getLibreOffice() {
   const candidates = [
@@ -17,49 +18,60 @@ function getLibreOffice() {
   return candidates.find(p => fs.existsSync(p)) || null;
 }
 
+function isMac() {
+  return os.platform() === 'darwin';
+}
+
+function hasImageMagick() {
+  try {
+    execSync('convert --version', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function imageToPdf(srcPath, outPath) {
-  const sharp = require('sharp');
-  const meta  = await sharp(srcPath).metadata();
-  const A4_W  = 595, A4_H = 842, margin = 40;
-  const scale = Math.min((A4_W - margin * 2) / meta.width, (A4_H - margin * 2) / meta.height, 1);
-  const imgW  = Math.round(meta.width  * scale);
-  const imgH  = Math.round(meta.height * scale);
-  const imgX  = margin + Math.round(((A4_W - margin * 2) - imgW) / 2);
-  const imgY  = margin + Math.round(((A4_H - margin * 2) - imgH) / 2);
+  if (isMac()) {
+    // Mac: dùng sips (có sẵn, không cần cài)
+    execSync(`sips -s format pdf "${srcPath}" --out "${outPath}"`, { timeout: 30000 });
+  } else if (hasImageMagick()) {
+    // Ubuntu: dùng ImageMagick
+    execSync(`convert "${srcPath}" "${outPath}"`, { timeout: 30000 });
+  } else {
+    // Fallback: cài ImageMagick tự động
+    throw new Error('Cần cài ImageMagick: sudo apt-get install -y imagemagick');
+  }
 
-  const imgBuf = await sharp(srcPath).resize(imgW, imgH).jpeg({ quality: 90 }).toBuffer();
-  const content = `q\n${imgW} 0 0 ${imgH} ${imgX} ${A4_H - imgY - imgH} cm\n/Img Do\nQ\n`;
-
-  const header =
-    `%PDF-1.4\n` +
-    `1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj\n` +
-    `2 0 obj\n<</Type/Pages/Kids[3 0 R]/Count 1>>\nendobj\n` +
-    `3 0 obj\n<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${A4_W} ${A4_H}]/Contents 4 0 R/Resources<</XObject<</Img 5 0 R>>>>>>\nendobj\n` +
-    `4 0 obj\n<</Length ${content.length}>>\nstream\n${content}\nendstream\nendobj\n` +
-    `5 0 obj\n<</Type/XObject/Subtype/Image/Width ${imgW}/Height ${imgH}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${imgBuf.length}>>\nstream\n`;
-  const footer = `\nendstream\nendobj\ntrailer\n<</Size 6/Root 1 0 R>>\n%%EOF\n`;
-
-  const fd = fs.openSync(outPath, 'w');
-  fs.writeSync(fd, header);
-  fs.writeSync(fd, imgBuf);
-  fs.writeSync(fd, footer);
-  fs.closeSync(fd);
+  if (!fs.existsSync(outPath)) {
+    throw new Error('Convert ảnh sang PDF thất bại');
+  }
 }
 
 async function toPdf(srcPath, originalName) {
-  const ext     = path.extname(originalName).toLowerCase();
+  const ext = path.extname(originalName).toLowerCase();
   const outPath = srcPath + '.pdf';
 
+  // Đã là PDF
   if (ext === '.pdf') {
     fs.renameSync(srcPath, outPath);
     return outPath;
   }
 
+  // Ảnh
   if (IMAGE_EXTS.includes(ext)) {
-    await imageToPdf(srcPath, outPath);
+    // Đổi tên thêm extension để tool đọc đúng định dạng
+    const srcWithExt = srcPath + ext;
+    fs.renameSync(srcPath, srcWithExt);
+    try {
+      await imageToPdf(srcWithExt, outPath);
+    } finally {
+      if (fs.existsSync(srcWithExt)) fs.unlinkSync(srcWithExt);
+    }
     return outPath;
   }
 
+  // Word / Excel / PowerPoint
   if (OFFICE_EXTS.includes(ext)) {
     const soffice = getLibreOffice();
     if (!soffice) throw new Error('LibreOffice chưa được cài trên server');
@@ -76,7 +88,7 @@ async function toPdf(srcPath, originalName) {
     if (!fs.existsSync(converted)) throw new Error('LibreOffice convert thất bại');
 
     fs.renameSync(converted, outPath);
-    fs.unlinkSync(srcWithExt);
+    if (fs.existsSync(srcWithExt)) fs.unlinkSync(srcWithExt);
     return outPath;
   }
 
@@ -85,7 +97,7 @@ async function toPdf(srcPath, originalName) {
 
 function cleanup(...files) {
   for (const f of files) {
-    try { if (f && fs.existsSync(f)) fs.unlinkSync(f); } catch {}
+    try { if (f && fs.existsSync(f)) fs.unlinkSync(f); } catch { }
   }
 }
 

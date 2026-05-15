@@ -1,14 +1,14 @@
-const express   = require('express');
-const multer    = require('multer');
-const path      = require('path');
-const printer   = require('../printer');
-const converter = require('../converter');
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const printer = require('../printer');
+const { toPdf, cleanup, TEMP_DIR } = require('../converter');
 
 const router = express.Router();
 
 // Multer — lưu file tạm
 const upload = multer({
-  dest: converter.TEMP_DIR,
+  dest: TEMP_DIR,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -26,13 +26,13 @@ const upload = multer({
 router.get('/status', async (req, res) => {
   const status = await printer.checkStatus();
   res.json({
-    ok:      status.online,
+    ok: status.online,
     service: 'print-service',
     printer: {
-      ip:     process.env.PRINTER_IP,
-      port:   process.env.PRINTER_PORT,
+      ip: process.env.PRINTER_IP,
+      port: process.env.PRINTER_PORT,
       status: status.online ? 'online' : 'offline',
-      error:  status.error || null,
+      error: status.error || null,
     },
   });
 });
@@ -53,23 +53,23 @@ router.post('/print', upload.single('file'), async (req, res) => {
     }
 
     const { originalname, size } = req.file;
-    const copies  = Math.max(1, parseInt(req.body.copies)  || 1);
-    const user    = req.body.user    || 'anonymous';
+    const copies = Math.max(1, parseInt(req.body.copies) || 1);
+    const user = req.body.user || 'anonymous';
     const jobName = req.body.jobName || originalname;
 
     console.log(`[Print] ${user} → ${originalname} (${(size / 1024).toFixed(1)}KB) x${copies}`);
 
     // Convert sang PDF
-    pdfPath = await converter.toPdf(uploadedPath, originalname);
+    pdfPath = await toPdf(uploadedPath, originalname);
 
     // Gửi tới máy in
     await printer.print(pdfPath, { copies, jobName });
 
     console.log(`[Print] ✓ ${originalname}`);
     res.json({
-      ok:      true,
+      ok: true,
       message: 'Gửi lệnh in thành công',
-      file:    originalname,
+      file: originalname,
       copies,
       user,
     });
@@ -78,7 +78,7 @@ router.post('/print', upload.single('file'), async (req, res) => {
     console.error(`[Print] Lỗi:`, err.message);
     res.status(500).json({ ok: false, error: err.message });
   } finally {
-    converter.cleanup(uploadedPath, pdfPath !== uploadedPath ? pdfPath : null);
+    cleanup(uploadedPath, pdfPath !== uploadedPath ? pdfPath : null);
   }
 });
 
