@@ -84,9 +84,14 @@ async function print(pdfPath, {
   let fileData = fs.readFileSync(pdfPath);
   fileData = await applyPageRange(fileData, pageRange);
 
+  const { PDFDocument } = require('pdf-lib');
+  const doc = await PDFDocument.load(fileData);
+  const pageCount = doc.getPageCount();
+  const sheetsPerCopy = duplex ? Math.ceil(pageCount / 2) : pageCount;
+
   const pjlHeader = buildPjlHeader({ copies, duplex, paperSize, orientation, jobName });
 
-  return new Promise((resolve, reject) => {
+  await new Promise((resolve, reject) => {
     const socket = new net.Socket();
     socket.setTimeout(30000);
     socket.connect(PRINTER_PORT, PRINTER_IP, () => {
@@ -101,6 +106,8 @@ async function print(pdfPath, {
     });
     socket.on('error', reject);
   });
+
+  return { pages: pageCount, totalSheets: sheetsPerCopy * copies };
 }
 
 module.exports = { checkStatus, print };

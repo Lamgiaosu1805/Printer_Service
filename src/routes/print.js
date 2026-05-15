@@ -71,9 +71,9 @@ router.post('/print', upload.single('file'), async (req, res) => {
     console.log(`[Print] ${user} → ${originalname} (${(size / 1024).toFixed(1)}KB) x${copies} duplex=${duplex} paper=${paperSize} orient=${orientation} range=${pageRange} fit=${fitToPage}`);
 
     pdfPath = await toPdf(uploadedPath, originalname, { fitToPage });
-    await printer.print(pdfPath, { copies, duplex, paperSize, orientation, pageRange, jobName });
+    const { pages, totalSheets } = await printer.print(pdfPath, { copies, duplex, paperSize, orientation, pageRange, jobName });
 
-    console.log(`[Print] ✓ ${originalname}`);
+    console.log(`[Print] ✓ ${originalname} — ${totalSheets} tờ`);
     res.json({
       ok: true,
       message: 'Gửi lệnh in thành công',
@@ -84,6 +84,8 @@ router.post('/print', upload.single('file'), async (req, res) => {
       orientation,
       pageRange,
       fitToPage,
+      pages,
+      totalSheets,
       user,
     });
 
