@@ -1,0 +1,21 @@
+{
+  "name": "print_serivce",
+  "version": "1.0.0",
+  "description": "Service Node.js Express độc lập, nhận lệnh in từ hệ thống HRM/CRM nội bộ và gửi tới máy in qua cổng 9100.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.1.1",
+    "sharp": "^0.34.5"
+  }
+}
