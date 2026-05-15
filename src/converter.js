@@ -2,6 +2,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const ExcelJS = require('exceljs');
 
 const TEMP_DIR = process.env.TEMP_DIR || '/tmp/print-service';
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
@@ -28,6 +29,23 @@ function hasImageMagick() {
     return true;
   } catch {
     return false;
+  }
+}
+
+const EXCEL_EXTS = ['.xlsx', '.ods'];
+
+async function setFitToPage(filePath) {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    workbook.worksheets.forEach(sheet => {
+      sheet.pageSetup.fitToPage = true;
+      sheet.pageSetup.fitToWidth = 1;
+      sheet.pageSetup.fitToHeight = 0;
+    });
+    await workbook.xlsx.writeFile(filePath);
+  } catch (e) {
+    console.warn('[Converter] Không set được fitToPage:', e.message);
   }
 }
 
@@ -78,6 +96,10 @@ async function toPdf(srcPath, originalName) {
 
     const srcWithExt = srcPath + ext;
     fs.renameSync(srcPath, srcWithExt);
+
+    if (EXCEL_EXTS.includes(ext)) {
+      await setFitToPage(srcWithExt);
+    }
 
     execSync(`"${soffice}" --headless --convert-to pdf --outdir "${TEMP_DIR}" "${srcWithExt}"`, {
       timeout: 60000,
