@@ -1,17 +1,13 @@
 const net = require('net');
-const fs  = require('fs');
+const fs = require('fs');
 
-const PRINTER_IP   = process.env.PRINTER_IP;
+const PRINTER_IP = process.env.PRINTER_IP;
 const PRINTER_PORT = parseInt(process.env.PRINTER_PORT) || 9100;
 
-/**
- * Kiểm tra máy in online
- */
 function checkStatus() {
   return new Promise((resolve) => {
     const socket = new net.Socket();
     socket.setTimeout(3000);
-
     socket.connect(PRINTER_PORT, PRINTER_IP, () => {
       socket.destroy();
       resolve({ online: true, ip: PRINTER_IP, port: PRINTER_PORT });
@@ -27,25 +23,34 @@ function checkStatus() {
 }
 
 /**
- * Gửi file PDF tới máy in qua RAW/JetDirect port 9100
+ * @param {string} pdfPath
+ * @param {object} options
+ *   copies  {number}  - số bản in (mặc định 1)
+ *   duplex  {boolean} - in 2 mặt (mặc định false)
+ *   jobName {string}  - tên job
  */
-function print(pdfPath, { copies = 1, jobName = 'PrintJob' } = {}) {
+function print(pdfPath, { copies = 1, duplex = false, jobName = 'PrintJob' } = {}) {
   return new Promise((resolve, reject) => {
     const fileData = fs.readFileSync(pdfPath);
-    const socket   = new net.Socket();
+    const socket = new net.Socket();
     socket.setTimeout(30000);
 
     socket.connect(PRINTER_PORT, PRINTER_IP, () => {
-      const header = Buffer.from(
+      // PJL header để set copies và duplex
+      // Sau đó ENTER LANGUAGE=PDF để máy in xử lý đúng
+      const duplexValue = duplex ? 'DUPLEX' : 'SIMPLEX';
+      const pjlHeader = Buffer.from(
         `\x1B%-12345X@PJL\r\n` +
-        `@PJL JOB NAME="${jobName}"\r\n` +
         `@PJL SET COPIES=${copies}\r\n` +
+        `@PJL SET DUPLEX=${duplexValue}\r\n` +
+        `@PJL SET BINDING=LONGEDGE\r\n` +    // lật theo cạnh dài (portrait)
         `@PJL ENTER LANGUAGE=PDF\r\n`
       );
-      const footer = Buffer.from(`\r\n\x1B%-12345X@PJL EOJ\r\n\x1B%-12345X`);
-      socket.write(header);
+      const pjlFooter = Buffer.from(`\r\n\x1B%-12345X@PJL EOJ\r\n\x1B%-12345X`);
+
+      socket.write(pjlHeader);
       socket.write(fileData);
-      socket.write(footer);
+      socket.write(pjlFooter);
       socket.end();
     });
 
