@@ -11,7 +11,7 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.csv', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'];
+    const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.csv', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp', '.heic'];
     if (allowed.includes(ext)) {
       cb(null, true);
     } else {

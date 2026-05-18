@@ -8,7 +8,7 @@ const TEMP_DIR = process.env.TEMP_DIR || '/tmp/print-service';
 if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 
 const OFFICE_EXTS = ['.doc', '.docx', '.odt', '.rtf', '.xls', '.xlsx', '.ods', '.csv', '.ppt', '.pptx', '.odp'];
-const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp'];
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.tiff', '.bmp', '.heic'];
 
 function getLibreOffice() {
   const candidates = [
@@ -78,13 +78,21 @@ async function toPdf(srcPath, originalName, { fitToPage = false } = {}) {
 
   // Ảnh
   if (IMAGE_EXTS.includes(ext)) {
-    // Đổi tên thêm extension để tool đọc đúng định dạng
     const srcWithExt = srcPath + ext;
     fs.renameSync(srcPath, srcWithExt);
+    let imgPath = srcWithExt;
+    let heicTmp = null;
     try {
-      await imageToPdf(srcWithExt, outPath);
+      // HEIC trên Linux: convert sang JPG trước bằng heif-convert
+      if (ext === '.heic' && !isMac()) {
+        heicTmp = srcPath + '.jpg';
+        execSync(`heif-convert "${srcWithExt}" "${heicTmp}"`, { timeout: 30000 });
+        imgPath = heicTmp;
+      }
+      await imageToPdf(imgPath, outPath);
     } finally {
       if (fs.existsSync(srcWithExt)) fs.unlinkSync(srcWithExt);
+      if (heicTmp && fs.existsSync(heicTmp)) fs.unlinkSync(heicTmp);
     }
     return outPath;
   }
