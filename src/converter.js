@@ -32,14 +32,6 @@ function hasImageMagick() {
   }
 }
 
-function hasFFmpeg() {
-  try {
-    execSync('ffmpeg -version', { stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 const EXCEL_EXTS = ['.xlsx', '.ods'];
 
@@ -92,14 +84,10 @@ async function toPdf(srcPath, originalName, { fitToPage = false } = {}) {
     let imgPath = srcWithExt;
     let heicTmp = null;
     try {
-      // HEIC trên Linux: convert sang JPG trước
+      // HEIC trên Linux: convert sang JPG bằng sharp
       if (ext === '.heic' && !isMac()) {
         heicTmp = srcPath + '.jpg';
-        if (hasFFmpeg()) {
-          execSync(`ffmpeg -i "${srcWithExt}" -q:v 2 "${heicTmp}" -y`, { timeout: 30000 });
-        } else {
-          throw new Error('Cần cài ffmpeg để in file HEIC: sudo apt-get install -y ffmpeg');
-        }
+        await require('sharp')(srcWithExt).jpeg({ quality: 95 }).toFile(heicTmp);
         imgPath = heicTmp;
       }
       await imageToPdf(imgPath, outPath);
