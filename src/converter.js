@@ -84,10 +84,13 @@ async function toPdf(srcPath, originalName, { fitToPage = false } = {}) {
     let imgPath = srcWithExt;
     let heicTmp = null;
     try {
-      // HEIC trên Linux: convert sang JPG bằng sharp
+      // HEIC trên Linux: convert sang JPG bằng heic-convert (pure JS)
       if (ext === '.heic' && !isMac()) {
         heicTmp = srcPath + '.jpg';
-        await require('sharp')(srcWithExt).jpeg({ quality: 95 }).toFile(heicTmp);
+        const heicConvert = require('heic-convert');
+        const inputBuffer = fs.readFileSync(srcWithExt);
+        const outputBuffer = await heicConvert({ buffer: inputBuffer, format: 'JPEG', quality: 0.95 });
+        fs.writeFileSync(heicTmp, Buffer.from(outputBuffer));
         imgPath = heicTmp;
       }
       await imageToPdf(imgPath, outPath);
